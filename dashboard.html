@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard - Sign Language App</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      margin: 0; padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 25px;
+      box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+    }
+    .section h2 {
+      margin-top: 0;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 5px;
+      color: #007bff;
+    }
+    ul.logs {
+      list-style: none;
+      padding-left: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    ul.logs li {
+      padding: 8px 10px;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+    ul.logs li:last-child {
+      border-bottom: none;
+    }
+    .log-date {
+      color: #666;
+      font-style: italic;
+      white-space: nowrap;
+      margin-left: 15px;
+      flex-shrink: 0;
+    }
+    .empty-msg {
+      color: #888;
+      font-style: italic;
+      padding: 10px 0;
+    }
+
+    a.video-link {
+      color: #007bff;
+      cursor: pointer;
+      text-decoration: underline;
+      max-width: max-content;
+      display: inline-block;
+    }
+
+    #video-player-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+    #video-player {
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      max-width: 100%;
+      height: auto;
+      max-height: 360px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome, {{ username }}! Your Dashboard</h1>
+
+  <!-- Video Logs -->
+  <div class="section">
+    <h2>Video Logs</h2>
+    {% if video_pairs %}
+      <ul class="logs">
+        {% for video, date in video_pairs %}
+          <li>
+            <a href="#" class="video-link" data-src="{{ url_for('static', filename='uploads/' + video.filename) }}">
+              {{ video.filename }}
+            </a>
+            <span class="log-date">{{ date }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+
+      <div id="video-player-container" style="display:none;">
+        <video id="video-player" controls>
+          <source id="video-source" src="" type="video/webm" />
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    {% else %}
+      <p class="empty-msg">No video logs found.</p>
+    {% endif %}
+  </div>
+
+  <!-- Translation Logs -->
+  <div class="section">
+    <h2>Translation Logs</h2>
+    {% if translation_pairs %}
+      <ul class="logs">
+        {% for trans, date in translation_pairs %}
+          <li>
+            <span>{{ trans.translated_text }}</span>
+            <span class="log-date">{{ date }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-msg">No translation logs found.</p>
+    {% endif %}
+  </div>
+
+  <!-- Animation Logs -->
+  <div class="section">
+    <h2>Animation Logs</h2>
+    {% if animation_pairs %}
+      <ul class="logs">
+        {% for anim, date in animation_pairs %}
+          <li>
+            <span>{{ anim.sign_text }}</span>
+            <span class="log-date">{{ date }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-msg">No animation logs found.</p>
+    {% endif %}
+  </div>
+
+  <!-- Login History -->
+  <div class="section">
+    <h2>Login History</h2>
+    {% if login_pairs %}
+      <ul class="logs">
+        {% for login, date in login_pairs %}
+          <li>
+            <span>Logged in</span>
+            <span class="log-date">{{ date }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-msg">No login history found.</p>
+    {% endif %}
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const videoLinks = document.querySelectorAll('.video-link');
+      const playerContainer = document.getElementById('video-player-container');
+      const videoPlayer = document.getElementById('video-player');
+      const videoSource = document.getElementById('video-source');
+
+      videoLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const src = link.getAttribute('data-src');
+          if (!src) return;
+
+          videoSource.src = src;
+          videoPlayer.load();
+          playerContainer.style.display = 'block';
+          videoPlayer.scrollIntoView({behavior: "smooth"});
+          videoPlayer.play();
+        });
+      });
+    });
+  </script>
+</body>
+</html>

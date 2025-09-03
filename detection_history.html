@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Detection History</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f8f8f8; }
+    h1 { text-align: center; }
+    .video-list { max-width: 900px; margin: 20px auto; }
+    .video-item {
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      padding: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    video {
+      max-width: 200px;
+      border-radius: 8px;
+    }
+    .details {
+      flex-grow: 1;
+    }
+    .details p {
+      margin: 5px 0;
+    }
+    a.back-btn {
+      display: inline-block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      text-align: center;
+    }
+    a.back-btn:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <h1>Detection History for {{ username }}</h1>
+  <div class="video-list">
+    {% if videos %}
+      {% for video in videos %}
+        <div class="video-item">
+          <video src="{{ url_for('static', filename='history/' + video.video_path.split('/')[-1]) }}" controls></video>
+          <div class="details">
+            <p><strong>Detected Sign:</strong> {{ video.sign_predicted }}</p>
+            <p><strong>Timestamp:</strong> {{ video.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No detection history found.</p>
+    {% endif %}
+  </div>
+  <a href="{{ url_for('detection') }}" class="back-btn">Back to Detection</a>
+</body>
+</html>

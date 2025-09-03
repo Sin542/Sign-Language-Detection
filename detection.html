@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign Detection</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      height: 100vh;
+      background: url("{{ url_for('static', filename='images/sign4.png') }}") no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    .main-box {
+      background-color: rgba(255, 255, 255, 0.95);
+      width: 90%;
+      max-width: 1200px;
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      box-shadow: 0 0 20px rgba(0,0,0,0.25);
+      position: relative;
+      z-index: 1;
+    }
+    .camera-box {
+      width: 48%;
+      height: 300px;
+      border: 2px solid black;
+      border-radius: 10px;
+      background-color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    .camera-box video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    .text-area-section {
+      width: 48%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #output {
+      width: 100%;
+      height: 200px;
+      resize: none;
+      font-size: 16px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    .button-row {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .button-row button {
+      padding: 10px 20px;
+      font-size: 14px;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+    }
+    .clear-btn { background-color: #f0ad4e; }
+    .clear-btn:hover { background-color: #ec971f; }
+    .save-btn { background-color: #5cb85c; }
+    .save-btn:hover { background-color: #449d44; }
+    .back-btn { background-color: #d9534f; }
+    .back-btn:hover { background-color: #c9302c; }
+    .logout-btn, .history-btn {
+      position: fixed;
+      top: 20px;
+      background-color: #000;
+      color: #fff;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 999;
+    }
+    .logout-btn { right: 20px; }
+    .history-btn { left: 20px; }
+    .logout-btn:hover, .history-btn:hover { background-color: #222; }
+    .history-box {
+      width: 25%;
+      height: 100vh;
+      background: #f5f5f5;
+      border-left: 2px solid #ccc;
+      padding: 15px;
+      position: fixed;
+      left: -100%;
+      top: 0;
+      z-index: 998;
+      overflow-y: auto;
+      transition: left 0.4s ease;
+    }
+    .history-box.visible { left: 0; }
+    .history-box h3 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 18px;
+      color: #333;
+    }
+    .history-entry {
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .history-entry textarea {
+      width: 100%;
+      resize: none;
+      font-size: 13px;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #fff;
+    }
+    .history-entry small {
+      display: block;
+      color: #777;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .history-entry button {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: transparent;
+      border: none;
+      color: red;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Buttons -->
+  <button class="logout-btn" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i></button>
+  <button class="history-btn" onclick="toggleHistory()"><i class="fa-solid fa-clock-rotate-left"></i></button>
+
+  <!-- History Sidebar -->
+  <div class="history-box" id="historyBox"><h3>My History</h3></div>
+
+  <!-- Main Layout -->
+  <div class="main-box">
+    <div class="camera-box" id="camera"></div>
+    <div class="text-area-section">
+      <textarea id="output" placeholder="Detected text will appear here..." readonly></textarea>
+      <div class="button-row">
+        <button class="clear-btn" onclick="clearText()">Clear</button>
+        <button class="save-btn" onclick="saveText()">Save</button>
+        <button class="back-btn" onclick="goBack()">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let videoElem;
+    let mediaRecorder;
+    let recordedChunks = [];
+    let recordInterval;
+
+    function clearText() {
+      document.getElementById('output').value = '';
+    }
+
+    function saveText() {
+      const text = document.getElementById('output').value.trim();
+      if (!text) return alert("Nothing to save.");
+      const email = localStorage.getItem('userEmail');
+      if (!email) return alert("User not logged in.");
+      const historyKey = `history_${email}`;
+      const oldData = JSON.parse(localStorage.getItem(historyKey)) || [];
+      oldData.push({ text: text, timestamp: new Date().toLocaleString() });
+      localStorage.setItem(historyKey, JSON.stringify(oldData));
+      loadHistory();
+      const blob = new Blob([text], { type: 'text/plain' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'detected_text.txt';
+      link.click();
+    }
+
+    function goBack() {
+      window.location.href = '/home';
+    }
+
+    function logout() {
+      localStorage.removeItem('userEmail');
+      window.location.href = '/logout';
+    }
+
+    function toggleHistory() {
+      const box = document.getElementById('historyBox');
+      box.classList.toggle('visible');
+    }
+
+    function deleteEntry(index) {
+      const email = localStorage.getItem('userEmail');
+      const key = `history_${email}`;
+      const data = JSON.parse(localStorage.getItem(key)) || [];
+      data.splice(index, 1);
+      localStorage.setItem(key, JSON.stringify(data));
+      loadHistory();
+    }
+
+    function loadHistory() {
+      const email = localStorage.getItem('userEmail');
+      const box = document.getElementById('historyBox');
+      const key = `history_${email}`;
+      const data = JSON.parse(localStorage.getItem(key)) || [];
+      box.innerHTML = '<h3>My History</h3>';
+      if (data.length === 0) {
+        box.innerHTML += "<p>No entries yet.</p>";
+      } else {
+        data.slice().reverse().forEach((entry, index) => {
+          const div = document.createElement('div');
+          div.className = 'history-entry';
+          div.innerHTML = `
+            <textarea rows="3" readonly>${entry.text}</textarea>
+            <small>${entry.timestamp}</small>
+            <button onclick="deleteEntry(${data.length - 1 - index})"><i class="fa-solid fa-trash"></i></button>
+          `;
+          box.appendChild(div);
+        });
+      }
+    }
+
+    function getSupportedMimeType() {
+      const possibleTypes = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        'video/mp4'
+      ];
+      for (const type of possibleTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          return type;
+        }
+      }
+      return '';
+    }
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // ✅ include audio
+        videoElem = document.createElement('video');
+        videoElem.srcObject = stream;
+        videoElem.autoplay = true;
+        videoElem.playsInline = true;
+        videoElem.muted = true; // mute local playback
+        document.getElementById('camera').innerHTML = '';
+        document.getElementById('camera').appendChild(videoElem);
+        await videoElem.play();
+        startRecording(stream);
+        predictLoop();
+      } catch (err) {
+        console.error('Camera error:', err);
+        alert('Cannot access camera: ' + err.message);
+      }
+    }
+
+    function startRecording(stream) {
+      recordedChunks = [];
+      const mimeType = getSupportedMimeType();
+      if (!mimeType) {
+        alert('No supported video mime type for recording found.');
+        return;
+      }
+
+      mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks, { type: mimeType });
+        const formData = new FormData();
+        const filename = `recording_${Date.now()}.webm`;
+        formData.append('video', blob, filename);
+
+        try {
+          const response = await fetch('/upload_video', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+          });
+          console.log('Video uploaded', await response.text());
+        } catch (err) {
+          console.error('Video upload error:', err);
+        }
+
+        recordedChunks = [];
+        mediaRecorder.start();
+        recordInterval = setTimeout(() => {
+          mediaRecorder.stop();
+        }, 10000);
+      };
+
+      mediaRecorder.start();
+      recordInterval = setTimeout(() => {
+        mediaRecorder.stop();
+      }, 10000);
+    }
+
+    async function predictLoop() {
+      if (!videoElem || videoElem.readyState < 2) {
+        setTimeout(predictLoop, 500);
+        return;
+      }
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoElem.videoWidth;
+        canvas.height = videoElem.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL('image/jpeg');
+
+        const response = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: imageData }),
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const prediction = data.prediction || '';
+          if (prediction && prediction !== 'No Hand Detected' && prediction !== 'No Confident Prediction') {
+            const output = document.getElementById('output');
+            if (!output.value.endsWith(prediction + ' ')) {
+              output.value += prediction + ' ';
+              speak(prediction);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Prediction error:', error);
+      }
+      setTimeout(predictLoop, 1000);
+    }
+
+    function speak(text) {
+      if (!('speechSynthesis' in window)) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.rate = 1;
+      window.speechSynthesis.speak(utter);
+    }
+
+    window.onload = () => {
+      {% if session.email %}
+        localStorage.setItem("userEmail", "{{ session.email }}");
+      {% endif %}
+      startCamera();
+      loadHistory();
+    };
+  </script>
+</body>
+</html>
